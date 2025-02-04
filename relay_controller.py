@@ -46,7 +46,14 @@ if __name__ == "__main__":
         while True:
             try:
                 with open('/sys/class/thermal/thermal_zone0/temp') as file:
-                    temp = int(float(file.read()) / 1000)
+                    temp = round(float(file.read()) / 1000, 1)
+                    if temp >= upper_threshold:
+                        GPIO.output(FAN_PIN, 1)
+                    elif temp < lower_threshold:
+                        GPIO.output(FAN_PIN, 0)
+                    stime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+                    print(f"{stime}  Temperature = {temp} \xb0C, Fan {'ON' if GPIO.input(FAN_PIN) else 'OFF'}")
+                    time.sleep(update_delay)
             except FileNotFoundError:
                 print("Error: Could not read temperature file. Check if thermal_zone0 exists.", file=sys.stderr)
                 GPIO.cleanup()
@@ -55,13 +62,6 @@ if __name__ == "__main__":
                 print("Error: Could not parse temperature value.", file=sys.stderr)
                 GPIO.cleanup()
                 sys.exit(1)
-            if temp >= upper_threshold:
-                GPIO.output(FAN_PIN, 1)
-            elif temp < lower_threshold:
-                GPIO.output(FAN_PIN, 0)
-            stime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-            print(f"{stime}  Temperature = {temp} \xb0C, Fan {'ON' if GPIO.input(FAN_PIN) else 'OFF'}")
-            time.sleep(update_delay)
     except KeyboardInterrupt:
         GPIO.cleanup()
         print("Exiting...")

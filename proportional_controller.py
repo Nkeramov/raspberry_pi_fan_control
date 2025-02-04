@@ -52,7 +52,13 @@ if __name__ == "__main__":
         while True:
             try:
                 with open('/sys/class/thermal/thermal_zone0/temp') as file:
-                    temp = int(float(file.read()) / 1000)
+                    temp = round(float(file.read()) / 1000, 1)
+                    duty_cycle = round(duty_cycle + p * (temp - target_temp), 1)
+                    duty_cycle = max(min_duty_cycle, min(duty_cycle, max_duty_cycle))
+                    stime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+                    print(f"{stime}   Temperature = {temp} \xb0C, Fan duty cycle {duty_cycle} %")
+                    fan.ChangeDutyCycle(duty_cycle)
+                    time.sleep(update_delay)
             except FileNotFoundError:
                 print("Error: Could not read temperature file. Check if thermal_zone0 exists.", file=sys.stderr)
                 GPIO.cleanup()
@@ -61,12 +67,6 @@ if __name__ == "__main__":
                 print("Error: Could not parse temperature value.", file=sys.stderr)
                 GPIO.cleanup()
                 sys.exit(1)
-            duty_cycle = duty_cycle + p * (temp - target_temp)
-            duty_cycle = max(min_duty_cycle, min(duty_cycle, max_duty_cycle))
-            stime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-            print(f"{stime}   Temperature = {temp} \xb0C, Fan duty cycle {duty_cycle} %")
-            fan.ChangeDutyCycle(duty_cycle)
-            time.sleep(update_delay)
     except KeyboardInterrupt:
         GPIO.cleanup()
         print("Exiting...")
