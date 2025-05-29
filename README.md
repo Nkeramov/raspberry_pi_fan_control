@@ -1,5 +1,7 @@
 # Raspberry Pi fan control
 
+[![license](https://img.shields.io/npm/l/pirev.svg?style=flat)](https://opensource.org/licenses/MIT)
+
 This project provides examples of fan control based on the current CPU temperature.
 
 It includes implementations of a relay controller and a proportional controller. 
