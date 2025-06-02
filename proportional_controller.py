@@ -89,7 +89,7 @@ def main() -> None:
                     error = round(temperature - target_temperature, 1)
                     if abs(error) > error_threshold:
                         new_duty_cycle = round(min_duty_cycle + p * error)
-                        new_duty_cycle = max(min_duty_cycle, min(duty_cycle, max_duty_cycle))
+                        new_duty_cycle = max(min_duty_cycle, min(new_duty_cycle, max_duty_cycle))
                         if new_duty_cycle != duty_cycle:
                             duty_cycle = new_duty_cycle
                             fan.ChangeDutyCycle(duty_cycle)
