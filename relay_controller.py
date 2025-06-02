@@ -1,15 +1,25 @@
 import sys
 import time
+import logging
 import argparse
 import RPi.GPIO as GPIO
 from datetime import datetime
+from argparse import Namespace
+from typing import Iterator, Optional
 from contextlib import contextmanager
 
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s : %(levelname)s : %(funcName)s : %(lineno)s : %(message)s",
+    datefmt="%H:%M:%S"
+)
 
 FAN_PIN = 4
 
 
-def parse_args():
+def parse_args() -> Namespace:
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser(description="Control a fan based on CPU temperature.")
     parser.add_argument("--lower", type=int, default=45, help="Lower temperature threshold in Celsius (default: 45)")
@@ -32,7 +42,7 @@ def parse_args():
 
 
 @contextmanager
-def gpio_manager():
+def gpio_manager() -> Iterator[None]:
     try:
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
@@ -42,43 +52,51 @@ def gpio_manager():
         GPIO.cleanup()
 
 
-def read_temperature() -> float:
+def read_temperature() -> Optional[float]:
+    temperature_file = "/sys/class/thermal/thermal_zone0/temp"
     try:
-        with open('/sys/class/thermal/thermal_zone0/temp') as file:
-            return round(float(file.read()) / 1000, 1)
-    except FileNotFoundError:
-        handle_error("Could not read temperature file. Check if thermal_zone0 exists.")
+        with open(temperature_file, "r") as file:
+            temperature_raw = file.read().strip()
+            temperature = round(float(temperature_raw) / 1000, 1)
+            return temperature
     except ValueError:
-        handle_error("Could not parse temperature value.")
+        logger.error("Could not parse temperature value from file: {temperature_file}. Raw: {temperature_raw}")
+    except FileNotFoundError:
+        logger.error(f"Could not read temperature file: {temperature_file}. Check if thermal_zone0 exists")
+    return None
 
 
-def handle_error(message, exit_code=1):
-    logging.error(message)
-    GPIO.cleanup()
-    sys.exit(exit_code)
-
-
-if __name__ == "__main__":
+def main() -> None:
     args = parse_args()
     lower_threshold = args.lower
     upper_threshold = args.upper
     update_delay = args.delay
-
+    pin_state = 0
     with gpio_manager():
         GPIO.setup(FAN_PIN, GPIO.OUT)
-        GPIO.output(FAN_PIN, 0)
+        GPIO.output(FAN_PIN, pin_state)
         try:
             while True:
-                temp = read_temperature()
-                if temp >= upper_threshold:
-                    GPIO.output(FAN_PIN, 1)
-                elif temp < lower_threshold:
-                    GPIO.output(FAN_PIN, 0)
-                stime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-                print(f"{stime}  Temperature = {temp} \xb0C, Fan {'ON' if GPIO.input(FAN_PIN) else 'OFF'}")
+                if (temperature := read_temperature()) is not None:
+                    new_pin_state = pin_state
+                    if temperature >= upper_threshold:
+                        new_pin_state = 1
+                    elif temperature < lower_threshold:
+                        new_pin_state = 0
+                    if new_pin_state != pin_state:
+                        pin_state = new_pin_state
+                        GPIO.output(FAN_PIN, pin_state)
+                        logger.info(f"Fan pin state changed to {'ON' if pin_state else 'OFF'}")
+                    logger.info(f"Temperature = {temperature} \xb0C, Fan pin state {'ON' if pin_state else 'OFF'}")
                 time.sleep(update_delay)
         except KeyboardInterrupt:
-            print("Exiting...")
-            sys.exit(0)
+            logger.info("Exiting...")
         except Exception as e:
-            handle_error(f"An unexpected error occurred: {e}")
+            logger.error(f"An unexpected error occurred: {e}")
+        finally:
+            logger.info("Stopping fan...")
+            GPIO.output(FAN_PIN, 0)
+
+
+if __name__ == "__main__":
+    main()

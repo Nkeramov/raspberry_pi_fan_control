@@ -1,15 +1,25 @@
 import sys
 import time
+import logging
 import argparse
 import RPi.GPIO as GPIO
 from datetime import datetime
+from argparse import Namespace
+from typing import Iterator, Optional
 from contextlib import contextmanager
 
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s : %(levelname)s : %(funcName)s : %(lineno)s : %(message)s",
+    datefmt="%H:%M:%S"
+)
 
 FAN_PIN = 4
 
 
-def parse_args():
+def parse_args() -> Namespace:
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser(description="Control a fan based on CPU temperature.")
     parser.add_argument("--temp", type=int, default=45, help="Target temperature in Celsius (default: 45)")
@@ -37,7 +47,7 @@ def parse_args():
 
 
 @contextmanager
-def gpio_manager():
+def gpio_manager() -> Iterator[None]:
     try:
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
@@ -47,48 +57,54 @@ def gpio_manager():
         GPIO.cleanup()
 
 
-def read_temperature() -> float:
+def read_temperature() -> Optional[float]:
+    temperature_file = "/sys/class/thermal/thermal_zone0/temp"
     try:
-        with open('/sys/class/thermal/thermal_zone0/temp') as file:
-            return round(float(file.read()) / 1000, 1)
-    except FileNotFoundError:
-        handle_error("Could not read temperature file. Check if thermal_zone0 exists.")
+        with open(temperature_file, "r") as file:
+            temperature_raw = file.read().strip()
+            temperature = round(float(temperature_raw) / 1000, 1)
+            return temperature
     except ValueError:
-        handle_error("Could not parse temperature value.")
+        logger.error("Could not parse temperature value from file: {temperature_file}. Raw: {temperature_raw}")
+    except FileNotFoundError:
+        logger.error(f"Could not read temperature file: {temperature_file}. Check if thermal_zone0 exists")
+    return None
 
 
-def handle_error(message, exit_code=1):
-    logging.error(message)
-    GPIO.cleanup()
-    sys.exit(exit_code)
-
-
-if __name__ == "__main__":
+def main() -> None:
     args = parse_args()
     p = args.p
     error_threshold = 0.1
-    target_temp = args.temp
+    target_temperature = args.temp
     update_delay = args.delay
     min_duty_cycle = args.dmin
     max_duty_cycle = args.dmax
     duty_cycle = min_duty_cycle
-
     with gpio_manager():
         fan = GPIO.PWM(FAN_PIN, 100)
         fan.start(0)
         try:
             while True:
-                temp = read_temperature()
-                error = round(temp - target_temp, 1)
-                if abs(error) > error_threshold:
-                    duty_cycle = round(min_duty_cycle + p * error)
-                    duty_cycle = max(min_duty_cycle, min(duty_cycle, max_duty_cycle))
-                    fan.ChangeDutyCycle(duty_cycle)
-                stime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-                print(f"{stime}   Temperature = {temp} \xb0C, Error = {error} \xb0C, Fan duty cycle {duty_cycle} %")
+                if (temperature := read_temperature()) is not None:
+                    error = round(temperature - target_temperature, 1)
+                    if abs(error) > error_threshold:
+                        new_duty_cycle = round(min_duty_cycle + p * error)
+                        new_duty_cycle = max(min_duty_cycle, min(duty_cycle, max_duty_cycle))
+                        if new_duty_cycle != duty_cycle:
+                            duty_cycle = new_duty_cycle
+                            fan.ChangeDutyCycle(duty_cycle)
+                            logger.info(f"Fan duty cycle changed to {duty_cycle}%")
+                    logger.info(f"Temperature = {temperature} \xb0C, Error = {error} \xb0C, Fan duty cycle {duty_cycle} %")
                 time.sleep(update_delay)
         except KeyboardInterrupt:
-            print("Exiting...")
-            sys.exit(0)
+            logger.info("Exiting...")
         except Exception as e:
-            handle_error(f"An unexpected error occurred: {e}")
+            logger.error(f"An unexpected error occurred: {e}")
+        finally:
+            if 'fan' in locals() and fan is not None:
+                logger.info("Stopping fan...")
+                fan.stop()
+
+
+if __name__ == "__main__":
+    main()
