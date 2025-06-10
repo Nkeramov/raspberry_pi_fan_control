@@ -12,30 +12,22 @@ It includes implementations of a relay controller and a proportional controller.
 
 The fan is connected via a transistor switch to the 4th pin of the I/O ports. The fan connection pin can be changed in scripts. The remaining parameters can be set at startup.
 
-## Prerequisites
+## Setting up project
 
 Install the requirements. To keep things simple, we will use the Python virtual environment.
 
 ```bash
         python -m venv .venv
-        source .venv/bin/activate           # for linux and mac
-        ./env/Scripts/activate              # for windows
+        source .venv/bin/activate           # for Linux and Mac
+        ./env/Scripts/activate              # for Windows
         pip install -r requirements.txt
 ```
 
-Make run.sh executable and use it to run project.
+Make run.sh executable and use it to run project. Script arguments can be changed in the `run.sh` file.
 
 ```bash
         chmod +x run.sh
         ./run.sh
-```
-
-## Configuration
-
-The configuration file is located in the `.env` file. You can copy the `env.example` to `.env` and make your edits.
-
-```bash
-        cp env.example .env
 ```
 
 ## Contributing
@@ -50,3 +42,8 @@ We welcome contributions! If you want to contribute, please follow these steps:
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Ref
+
+- [Getting started](https://www.raspberrypi.com/documentation/computers/getting-started.html)
+- [Raspberry Pi OS](https://www.raspberrypi.com/documentation/computers/os.html)
