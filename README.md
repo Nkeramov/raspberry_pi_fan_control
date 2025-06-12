@@ -56,7 +56,7 @@ sudo nano /etc/rc.local
 ```
 Add to the end of file this line:
 ```bash
-./home/pi/raspberry_pi_fan_control/run.sh &
+/home/pi/raspberry_pi_fan_control/run.sh &
 ```
 Press Ctrl+O → Enter → Ctrl+X to save and exit.
 With these few easy steps, you now have automatic fan control.
