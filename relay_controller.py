@@ -9,12 +9,12 @@ from typing import Iterator, Optional
 from contextlib import contextmanager
 
 
-logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s : %(levelname)s : %(funcName)s : %(lineno)s : %(message)s",
-    datefmt="%H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S"
 )
+logger = logging.getLogger(__name__)
 
 FAN_PIN = 4
 
