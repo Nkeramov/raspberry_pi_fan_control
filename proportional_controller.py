@@ -3,7 +3,6 @@ import time
 import logging
 import argparse
 import RPi.GPIO as GPIO
-from datetime import datetime
 from argparse import Namespace
 from typing import Iterator, Optional
 from contextlib import contextmanager
